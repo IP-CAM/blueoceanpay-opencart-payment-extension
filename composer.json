@@ -1,0 +1,9 @@
+{
+    "name": "blueocean/blueoceanpay.ocmod",
+    "description": "N/A",
+    "type": "OpenCart module",
+    "require": {
+        "opencart/opencart": "3.0.2.0"
+    },
+    "license": "MIT"
+}
