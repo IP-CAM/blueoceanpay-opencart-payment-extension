@@ -1,8 +1,10 @@
 <?php
 
-class ControllerExtensionPaymentBlueoceanpay extends Controller {
+class ControllerExtensionPaymentBlueoceanpay extends Controller
+{
 
-    public function index() {
+    public function index()
+    {
         $data['button_confirm'] = $this->language->get('button_confirm');
 
         $data['redirect'] = $this->url->link('extension/payment/blueoceanpay/qrcode');
@@ -10,7 +12,8 @@ class ControllerExtensionPaymentBlueoceanpay extends Controller {
         return $this->load->view('extension/payment/blueoceanpay', $data);
     }
 
-    public function qrcode() {
+    public function qrcode()
+    {
         $this->load->language('extension/payment/blueoceanpay');
 
         $this->document->setTitle($this->language->get('heading_title'));
@@ -20,77 +23,72 @@ class ControllerExtensionPaymentBlueoceanpay extends Controller {
 
         $data['breadcrumbs'][] = array(
             'text' => $this->language->get('text_home'),
-            'href' => $this->url->link('common/home')
+            'href' => $this->url->link('common/home'),
         );
 
         $data['breadcrumbs'][] = array(
             'text' => $this->language->get('text_checkout'),
-            'href' => $this->url->link('checkout/checkout', '', true)
+            'href' => $this->url->link('checkout/checkout', '', true),
         );
 
         $data['breadcrumbs'][] = array(
             'text' => $this->language->get('text_qrcode'),
-            'href' => $this->url->link('extension/payment/blueoceanpay/qrcode')
+            'href' => $this->url->link('extension/payment/blueoceanpay/qrcode'),
         );
 
         $this->load->model('checkout/order');
 
         $order_info = $this->model_checkout_order->getOrder($this->session->data['order_id']);
-        $order_id = trim($order_info['order_id']);
+        $order_id   = trim($order_info['order_id']);
 
         // 获取商品信息
         // $order_products = $this->model_checkout_order->getOrderProducts($order_id);
 
         $data['order_id'] = $order_id;
-        $subject = trim($this->config->get('config_name'));
-        $currency = $this->config->get('payment_blueoceanpay_currency');
-        $total_amount = trim($this->currency->format($order_info['total'], $currency, '', false));
+        $subject          = trim($this->config->get('config_name'));
+        $currency         = $this->config->get('payment_blueoceanpay_currency');
+        $total_amount     = trim($this->currency->format($order_info['total'], $currency, '', false));
 
         // 支付接口
-        $url = 'http://api.hk.blueoceanpay.com/wechat/order/create';
+        $url = 'http://api.hk.blueoceanpay.com/payment/pay';
         // 支付订单数据
         $requestData = [
-            'appid'                => $this->config->get('payment_blueoceanpay_app_id'),
-            'nonce_str'         => $this->getRandChar(10),
-            'trade_type'        => 'NATIVE',
-            'body'              => $subject, //　店铺名称 or 商品名称
-            'out_trade_no'      => date('YmdHis', time()) . '-' . $order_id,
-            'total_fee'         => $total_amount * 100,
-            'spbill_create_ip'  => $order_info['ip'],
-            'notify_url'        => $this->url->link('extension/payment/blueoceanpay/callback')
+            'appid'        => $this->config->get('payment_blueoceanpay_app_id'),
+            'payment'      => 'blueocean.qrcode',
+            'body'         => $subject, //　店铺名称 or 商品名称
+            'out_trade_no' => date('YmdHis', time()) . '-' . $order_id,
+            'total_fee'    => $total_amount * 100,
+            'notify_url'   => $this->url->link('extension/payment/blueoceanpay/callback'),
         ];
-        $app_key =  $this->config->get('payment_blueoceanpay_app_secret');
+        $app_key             = $this->config->get('payment_blueoceanpay_app_secret');
         $requestData['sign'] = $this->sign($requestData, $app_key);
 
-        $result = self::httpPost($url, json_encode($requestData));
+        $result     = self::httpPost($url, json_encode($requestData));
         $returnData = json_decode($result, true);
 
-        $data['error'] = '';
+        $data['error']    = '';
         $data['code_url'] = '';
 
-        if($returnData['code'] != 200){
-            if ($returnData['data'] != '') {
-                $data['error_warning'] = $returnData['message'] . ': ' . $returnData['data'];
-            } else {
-                $data['error_warning'] = $returnData['message'];
-            }
+        if ($returnData['code'] != 200) {
+            $data['error_warning'] = $returnData['code'] . ': ' . $returnData['message'];
         } else {
-            $data['code_url'] = $returnData['data']['code_url'];
+            $data['code_url'] = $returnData['data']['qrcode'];
         }
 
         $data['action_success'] = $this->url->link('checkout/success');
 
-        $data['column_left'] = $this->load->controller('common/column_left');
-        $data['column_right'] = $this->load->controller('common/column_right');
-        $data['content_top'] = $this->load->controller('common/content_top');
+        $data['column_left']    = $this->load->controller('common/column_left');
+        $data['column_right']   = $this->load->controller('common/column_right');
+        $data['content_top']    = $this->load->controller('common/content_top');
         $data['content_bottom'] = $this->load->controller('common/content_bottom');
-        $data['footer'] = $this->load->controller('common/footer');
-        $data['header'] = $this->load->controller('common/header');
+        $data['footer']         = $this->load->controller('common/footer');
+        $data['header']         = $this->load->controller('common/header');
 
         $this->response->setOutput($this->load->view('extension/payment/blueoceanpay_qrcode', $data));
     }
 
-    public function isOrderPaid() {
+    public function isOrderPaid()
+    {
         $json = array();
 
         $json['result'] = false;
@@ -113,7 +111,8 @@ class ControllerExtensionPaymentBlueoceanpay extends Controller {
     /**
      * 支付回调，更新订单状态。
      */
-    public function callback() {
+    public function callback()
+    {
         $data = $_POST;
         if (($data['sign'] != $this->sign($data, $this->config->get('payment_blueoceanpay_app_secret')))) {
             $this->log->write('Sign Error');
@@ -143,7 +142,7 @@ class ControllerExtensionPaymentBlueoceanpay extends Controller {
      * @param array|string $data
      * @return bool|mixed
      */
-    static public function httpPost($url, $data)
+    public static function httpPost($url, $data)
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -174,7 +173,8 @@ class ControllerExtensionPaymentBlueoceanpay extends Controller {
      * @param string $key 密钥
      * @return string 签名
      */
-    public function sign($data, $key) {
+    public function sign($data, $key)
+    {
         $ignoreKeys = ['sign', 'key'];
         ksort($data);
         $signString = '';
@@ -194,10 +194,11 @@ class ControllerExtensionPaymentBlueoceanpay extends Controller {
      * @param $length
      * @return null|string
      */
-    public function getRandChar($length) {
-        $str = null;
+    public function getRandChar($length)
+    {
+        $str    = null;
         $strPol = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
-        $max = strlen($strPol) - 1;
+        $max    = strlen($strPol) - 1;
 
         for ($i = 0; $i < $length; $i++) {
             $str .= $strPol[rand(0, $max)];
@@ -212,14 +213,17 @@ class ControllerExtensionPaymentBlueoceanpay extends Controller {
      * @param mix $data
      * @return none
      */
-    function slack($data) {
-        if (empty($data))
+    public function slack($data)
+    {
+        if (empty($data)) {
             return;
-        $api = 'https://hooks.slack.com/services/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';
+        }
+
+        $api     = 'https://hooks.slack.com/services/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';
         $payload = array(
-            "channel" => "#developer",
+            "channel"  => "#developer",
             "username" => "BlueOceanBot",
-            "text" => "slack webhook"
+            "text"     => "slack webhook",
         );
         if (is_string($data)) {
             $payload['text'] = $data;
